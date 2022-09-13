@@ -1,0 +1,574 @@
+```{r}
+
+library(dplyr)
+library(stringr)
+
+#'[ Players on a new team for the year have their clean sheet percentage judged based on their new team, not their old one
+
+xcs2122 <- read.csv("21_22 xGA.csv")
+
+
+xcs2122$cspct <- ppois(0, lambda=xcs2122$xGA)
+
+
+
+players2122 <- read.csv("2122 Player Stats.csv")
+
+players2122 <- players2122 %>% filter(Player != "Player")
+
+playingtime2122 <- read.csv("2122 Playing Time.csv")
+
+playingtime2122 <- playingtime2122 %>% filter(Player != "Player")
+
+
+
+allplayers2122 <- left_join(players2122, playingtime2122, by = c("Player" = "Player", "Squad" = "Squad"))
+
+
+
+allplayers2122 <- allplayers2122 %>% select(Player, Squad, Pos.x, MP.x, Starts.x, unSub, xG, xA)
+
+
+allplayers2122 <- left_join(allplayers2122, xcs2122, by = c("Squad" = "Squad"))
+
+
+allplayers2122$first_name <- sub(" .*", "", allplayers2122$Player)
+
+
+allplayers2122$Pos1 <- sub(",.*", "", allplayers2122$Pos.x)
+
+
+allplayers2122$Pos2 <- sapply(strsplit(allplayers2122$Pos.x, ','), `[`, 2)
+
+
+allplayers2122$Pos1[allplayers2122$Player == "Mohamed Salah"] <- "MF"
+
+allplayers2122$Pos1[allplayers2122$Player == "Luis Díaz"] <- "MF"
+
+allplayers2122$Pos1[allplayers2122$Player == "Martinelli"] <- "MF"
+
+allplayers2122$Pos1[allplayers2122$Player == "Riyad Mahrez"] <- "MF"
+
+allplayers2122$Pos1[allplayers2122$Player == "Leon Bailey"] <- "MF"
+
+allplayers2122$Pos1[allplayers2122$Player == "Pedro Neto"] <- "MF"
+
+allplayers2122$Pos1[allplayers2122$Player == "Wilfried Zaha"] <- "MF"
+
+allplayers2122$xGA[allplayers2122$Player == "Aleksandar Mitrović"] <- 1.32
+
+allplayers2122$cspct[allplayers2122$Player == "Aleksandar Mitrović"] <- .25
+
+
+```
+
+
+```{r}
+
+fpl <- read.csv("_fpl_players.csv")
+
+fpl <- fpl %>% select(first_name, second_name, team_code, element_type, now_cost)
+
+fpl$now_cost <- fpl$now_cost/10
+
+fpl$element_type[fpl$element_type == 1] <- "GK"
+fpl$element_type[fpl$element_type == 2] <- "DF"
+fpl$element_type[fpl$element_type == 3] <- "MF"
+fpl$element_type[fpl$element_type == 4] <- "FW"
+
+
+
+fpl$team_code[fpl$team_code == 1] <- "Manchester Utd"
+fpl$team_code[fpl$team_code == 2] <- "Leeds United"
+fpl$team_code[fpl$team_code == 3] <- "Arsenal"
+fpl$team_code[fpl$team_code == 4] <- "Newcastle Utd"
+fpl$team_code[fpl$team_code == 6] <- "Tottenham"
+fpl$team_code[fpl$team_code == 7] <- "Aston Villa"
+fpl$team_code[fpl$team_code == 8] <- "Chelsea"
+fpl$team_code[fpl$team_code == 11] <- "Everton"
+fpl$team_code[fpl$team_code == 13] <- "Leicester City"
+fpl$team_code[fpl$team_code == 14] <- "Liverpool"
+fpl$team_code[fpl$team_code == 17] <- "Nott'ham Forest"
+fpl$team_code[fpl$team_code == 20] <- "Southampton"
+fpl$team_code[fpl$team_code == 21] <- "West Ham"
+fpl$team_code[fpl$team_code == 31] <- "Crystal Palace"
+fpl$team_code[fpl$team_code == 36] <- "Brighton"
+fpl$team_code[fpl$team_code == 39] <- "Wolves"
+fpl$team_code[fpl$team_code == 43] <- "Manchester City"
+fpl$team_code[fpl$team_code == 54] <- "Fulham"
+fpl$team_code[fpl$team_code == 91] <- "Bournemouth"
+fpl$team_code[fpl$team_code == 94] <- "Brentford"
+
+fpl$first_name <- sub(" .*", "", fpl$first_name)
+
+
+fpl$first_name[fpl$second_name == "Martinelli Silva"] <- "Martinelli"
+
+```
+
+
+```{r}
+
+
+fpl2122 <- left_join(allplayers2122, fpl, by = c("first_name" = "first_name", "Pos1" = "element_type", "Squad" = "team_code"))
+
+fpl2122 <- left_join(fpl2122, fpl, by = c("first_name" = "first_name", "Pos2" = "element_type", "Squad" = "team_code"))
+
+
+fpl2122$Pos.x <- fpl2122$Pos1
+
+fpl2122$Pos.x <- ifelse(is.na(fpl2122$second_name.y) == FALSE, fpl2122$Pos2, fpl2122$Pos.x)
+
+
+fpl2122 <- fpl2122 %>% mutate(now_cost.x = coalesce(now_cost.x, now_cost.y))
+
+#'[ Possibly put in 2+ goals pct? although not sure if it would make much of a difference
+
+
+fpl2122 <- fpl2122 %>% select(Player, Squad, Pos.x, MP.x, Starts.x, unSub, xG, xA, cspct, now_cost.x)
+
+
+colnames(fpl2122) <- c("player", "team", "pos", "MP", "starts", "unSub", "xG", "xA", "cspct", "price")
+
+
+fpl2122 <- na.omit(fpl2122)
+
+
+
+
+fpl2122$starts <- as.numeric(fpl2122$starts)
+fpl2122$MP <- as.numeric(fpl2122$MP)
+fpl2122$xG <- as.numeric(fpl2122$xG)
+fpl2122$xA <- as.numeric(fpl2122$xA)
+fpl2122$unSub <- as.numeric(fpl2122$unSub)
+
+
+
+fpl2122$exp_points <- ifelse(fpl2122$pos == "DF", fpl2122$cspct*fpl2122$starts*4 + fpl2122$starts*2 + (fpl2122$MP - fpl2122$starts) + fpl2122$xG*6 + fpl2122$xA*3, NA)
+
+fpl2122$exp_points <- ifelse(fpl2122$pos == "MF", fpl2122$cspct*fpl2122$starts*1 + fpl2122$starts*2 + (fpl2122$MP - fpl2122$starts) + fpl2122$xG*5 + fpl2122$xA*3, fpl2122$exp_points)
+
+fpl2122$exp_points <- ifelse(fpl2122$pos == "FW", fpl2122$starts*2 + (fpl2122$MP - fpl2122$starts) + fpl2122$xG*4 + fpl2122$xA*3, fpl2122$exp_points)
+
+fpl2122$exp_points <- ifelse(fpl2122$pos == "GK", fpl2122$cspct*fpl2122$starts*4 + fpl2122$starts*2 + (fpl2122$MP - fpl2122$starts), fpl2122$exp_points)
+
+
+
+
+fpl2122$playpct <- fpl2122$MP/(fpl2122$MP + fpl2122$unSub)
+
+
+fpl2122$exp_points_game <- fpl2122$exp_points/fpl2122$MP
+
+
+fpl2122 <- fpl2122 %>% filter(MP > 5)
+
+
+
+#'[ Marginal expected value?
+
+#'[ Add luis diaz
+
+# 
+# plot(fpl2122$price, fpl2122$exp_points_game)
+# abline()
+
+
+fpl2122lm <- lm(exp_points_game ~ price, data = fpl2122)
+
+fpl2122$res <- resid(fpl2122lm)
+
+
+fpl2122$fplmetric <- fpl2122$exp_points_game*fpl2122$res*fpl2122$playpct
+
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+xcs2223 <- read.csv("22_23 xGA.csv")
+
+xcs2223 <- xcs2223 %>% select(Squad, xG.1)
+
+xcs2223$Squad <- substr(xcs2223$Squad, 4, length(xcs2223$Squad))
+
+xcs2223$cspct <- ppois(0, lambda=xcs2223$xG.1)
+
+
+
+players2223 <- read.csv("2223 Player Stats.csv")
+
+players2223 <- players2223 %>% filter(Player != "Player")
+
+playingtime2223 <- read.csv("2223 Playing Time.csv")
+
+playingtime2223 <- playingtime2223 %>% filter(Player != "Player")
+
+
+
+allplayers2223 <- left_join(players2223, playingtime2223, by = c("Player" = "Player", "Squad" = "Squad"))
+
+
+
+allplayers2223 <- allplayers2223 %>% select(Player, Squad, Pos.x, MP.x, Starts.x, unSub, xG, xA)
+
+
+allplayers2223 <- left_join(allplayers2223, xcs2223, by = c("Squad" = "Squad"))
+
+
+allplayers2223$first_name <- sub(" .*", "", allplayers2223$Player)
+
+
+allplayers2223$Pos.x <- ifelse(nchar(allplayers2223$Pos.x) > 2, gsub('^(.{2})(.*)$', '\\1,\\2', allplayers2223$Pos.x), allplayers2223$Pos.x)
+
+
+allplayers2223$Pos1 <- sub(",.*", "", allplayers2223$Pos.x)
+
+
+allplayers2223$Pos2 <- sapply(strsplit(allplayers2223$Pos.x, ','), `[`, 2)
+
+
+allplayers2223$Pos1[allplayers2223$Player == "Mohamed Salah"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Luis Díaz"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Martinelli"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Riyad Mahrez"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Leon Bailey"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Pedro Neto"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Pedro Neto"] <- "MF"
+
+allplayers2223$Pos1[allplayers2223$Player == "Wilfried Zaha"] <- "MF"
+
+
+
+# allplayers2223$xG[allplayers2223$Player == "Rodrigo"] <- 1.05
+# 
+allplayers2223$xG[allplayers2223$Player == "Gabriel Dos Santos"] <- .4
+# 
+# allplayers2223$xG[allplayers2223$Player == "Pascal Groß"] <- .42
+# 
+allplayers2223$xG[allplayers2223$Player == "Wilfried Zaha"] <- 1.4
+# 
+
+
+# allplayers2223$cspct[allplayers2223$Squad == "Manchester City"] <- .5
+# 
+# allplayers2223$cspct[allplayers2223$Squad == "Newcastle Utd"] <- .3
+# 
+allplayers2223$cspct[allplayers2223$Squad == "Chelsea"] <- .35
+# 
+allplayers2223$cspct[allplayers2223$Squad == "Brentford"] <- .3
+
+```
+
+
+
+
+```{r}
+
+fpl <- read.csv("_fpl_players.csv")
+
+fpl <- fpl %>% select(first_name, second_name, team_code, element_type, now_cost)
+
+fpl$now_cost <- fpl$now_cost/10
+
+fpl$element_type[fpl$element_type == 1] <- "GK"
+fpl$element_type[fpl$element_type == 2] <- "DF"
+fpl$element_type[fpl$element_type == 3] <- "MF"
+fpl$element_type[fpl$element_type == 4] <- "FW"
+
+
+
+fpl$team_code[fpl$team_code == 1] <- "Manchester Utd"
+fpl$team_code[fpl$team_code == 2] <- "Leeds United"
+fpl$team_code[fpl$team_code == 3] <- "Arsenal"
+fpl$team_code[fpl$team_code == 4] <- "Newcastle Utd"
+fpl$team_code[fpl$team_code == 6] <- "Tottenham"
+fpl$team_code[fpl$team_code == 7] <- "Aston Villa"
+fpl$team_code[fpl$team_code == 8] <- "Chelsea"
+fpl$team_code[fpl$team_code == 11] <- "Everton"
+fpl$team_code[fpl$team_code == 13] <- "Leicester City"
+fpl$team_code[fpl$team_code == 14] <- "Liverpool"
+fpl$team_code[fpl$team_code == 17] <- "Nott'ham Forest"
+fpl$team_code[fpl$team_code == 20] <- "Southampton"
+fpl$team_code[fpl$team_code == 21] <- "West Ham"
+fpl$team_code[fpl$team_code == 31] <- "Crystal Palace"
+fpl$team_code[fpl$team_code == 36] <- "Brighton"
+fpl$team_code[fpl$team_code == 39] <- "Wolves"
+fpl$team_code[fpl$team_code == 43] <- "Manchester City"
+fpl$team_code[fpl$team_code == 54] <- "Fulham"
+fpl$team_code[fpl$team_code == 91] <- "Bournemouth"
+fpl$team_code[fpl$team_code == 94] <- "Brentford"
+
+fpl$first_name <- sub(" .*", "", fpl$first_name)
+
+fpl$first_name[fpl$second_name == "Martinelli Silva"] <- "Martinelli"
+
+```
+
+
+
+```{r}
+
+
+
+fpl2223 <- left_join(allplayers2223, fpl, by = c("first_name" = "first_name", "Pos1" = "element_type", "Squad" = "team_code"))
+
+fpl2223 <- left_join(fpl2223, fpl, by = c("first_name" = "first_name", "Pos2" = "element_type", "Squad" = "team_code"))
+
+
+fpl2223$Pos.x <- fpl2223$Pos1
+
+fpl2223$Pos.x <- ifelse(is.na(fpl2223$second_name.y) == FALSE, fpl2223$Pos2, fpl2223$Pos.x)
+
+
+fpl2223 <- fpl2223 %>% mutate(now_cost.x = coalesce(now_cost.x, now_cost.y))
+
+#'[ Possibly put in 2+ goals pct? although not sure if it would make much of a difference
+
+
+fpl2223 <- fpl2223 %>% select(Player, Squad, Pos.x, MP.x, Starts.x, unSub, xG, xA, cspct, now_cost.x)
+
+
+colnames(fpl2223) <- c("player", "team", "pos", "MP", "starts", "unSub", "xG", "xA", "cspct", "price")
+
+
+fpl2223 <- na.omit(fpl2223)
+
+
+
+
+fpl2223$starts <- as.numeric(fpl2223$starts)
+fpl2223$MP <- as.numeric(fpl2223$MP)
+fpl2223$xG <- as.numeric(fpl2223$xG)
+fpl2223$xA <- as.numeric(fpl2223$xA)
+fpl2223$unSub <- as.numeric(fpl2223$unSub)
+
+
+
+fpl2223$exp_points <- ifelse(fpl2223$pos == "DF", fpl2223$cspct*fpl2223$starts*4 + fpl2223$starts*2 + (fpl2223$MP - fpl2223$starts) + fpl2223$xG*6 + fpl2223$xA*3, NA)
+
+fpl2223$exp_points <- ifelse(fpl2223$pos == "MF", fpl2223$cspct*fpl2223$starts*1 + fpl2223$starts*2 + (fpl2223$MP - fpl2223$starts) + fpl2223$xG*5 + fpl2223$xA*3, fpl2223$exp_points)
+
+fpl2223$exp_points <- ifelse(fpl2223$pos == "FW", fpl2223$starts*2 + (fpl2223$MP - fpl2223$starts) + fpl2223$xG*4 + fpl2223$xA*3, fpl2223$exp_points)
+
+fpl2223$exp_points <- ifelse(fpl2223$pos == "GK", fpl2223$cspct*fpl2223$starts*4 + fpl2223$starts*2 + (fpl2223$MP - fpl2223$starts), fpl2223$exp_points)
+
+
+
+
+fpl2223$playpct <- fpl2223$MP/(fpl2223$MP + fpl2223$unSub)
+
+
+fpl2223$exp_points_game <- fpl2223$exp_points/fpl2223$MP
+
+
+
+#'[ Marginal expected value?
+
+#'[ Add luis diaz
+
+
+
+fpl2223lm <- lm(exp_points_game ~ price, data = fpl2223)
+
+fpl2223$res <- resid(fpl2223lm)
+
+
+fpl2223$fplmetric <- fpl2223$exp_points_game*fpl2223$res*fpl2223$playpct
+
+
+
+```
+
+
+```{r}
+
+
+fpl2223x <- fpl2223 %>% select(player, team, pos, price, MP, exp_points, exp_points_game, playpct, fplmetric)
+
+
+fpl2122y <- fpl2122 %>% select(player, team, pos, price, MP, exp_points, exp_points_game, playpct, fplmetric)
+
+
+
+cheatsheet <- left_join(fpl2223x, fpl2122y, by = c("player" = "player", "team" = "team", "pos" = "pos", "price" = "price"))
+
+
+
+colnames(cheatsheet) <- c("player", "team", "pos", "price", "MP22_23", "exp_points22_23", "exp_points_game22_23", "playpct22_23", "fplmetric22_23", "MP21_22", "exp_points21_22", "exp_points_game21_22", "playpct21_22", "fplmetric21_22")
+
+
+#'* CHANGE PERCENTAGES AS SEASON GOES ON *
+
+
+cheatsheet$ovr_fplmetric <- cheatsheet$fplmetric22_23*.4 + ifelse(is.na(cheatsheet$fplmetric21_22) == FALSE, cheatsheet$fplmetric21_22*.6, 0)
+
+
+#'* CHANGE PRICES FOR YOUR TEAM HERE *
+
+
+cheatsheet$price[cheatsheet$player== "Eduard Mendy"] <- 5.0
+
+cheatsheet$price[cheatsheet$player== "Tretn Alexander-Arnold"] <- 7.5
+cheatsheet$price[cheatsheet$player== "Rúben Dias"] <- 6.0
+cheatsheet$price[cheatsheet$player== "João Cancelo"] <- 7.0
+cheatsheet$price[cheatsheet$player == "Ivan Perišić"] <- 5.4
+cheatsheet$price[cheatsheet$player== "Reece James"] <- 6.0
+
+cheatsheet$price[cheatsheet$player== "Martinelli"] <- 6.3
+cheatsheet$price[cheatsheet$player== "Mohamed Salah"] <- 13.0
+
+
+cheatsheet$price[cheatsheet$player== "Erling Haaland"] <- 11.6
+cheatsheet$price[cheatsheet$player== "Gabriel Jesus"] <- 8.1
+cheatsheet$price[cheatsheet$player== "Aleksandar Mitrović"] <- 6.6
+
+
+cheatsheet$price[cheatsheet$player== "Martinelli"] <- 6.3
+
+
+```
+
+
+```{r}
+
+library(lpSolve)
+library(dplyr)
+
+cheatsheet <- cheatsheet %>% filter(!(player %in% c("Joachim Andersen", "Gabriel Dos Santos", "William Saliba", "Rico Henry", "Ben Mee", "Rodrigo", "Oleksandr Zinchenko")))
+
+
+cheatsheet$team <- as.character(cheatsheet$team)
+cheatsheet$pos <- as.character(cheatsheet$pos)
+
+all.teams <- unique(cheatsheet$team)
+
+
+teamsmatrix <-rbind(matrix(cheatsheet$team == all.teams[1],1), matrix(cheatsheet$team == all.teams[2],1), matrix(cheatsheet$team == all.teams[3],1), matrix(cheatsheet$team == all.teams[4],1), matrix(cheatsheet$team == all.teams[5],1), matrix(cheatsheet$team == all.teams[6],1), matrix(cheatsheet$team == all.teams[7],1), matrix(cheatsheet$team == all.teams[8],1), matrix(cheatsheet$team == all.teams[9],1), matrix(cheatsheet$team == all.teams[10],1), matrix(cheatsheet$team == all.teams[11],1), matrix(cheatsheet$team == all.teams[12],1), matrix(cheatsheet$team == all.teams[13],1), matrix(cheatsheet$team == all.teams[14],1), matrix(cheatsheet$team == all.teams[15],1), matrix(cheatsheet$team == all.teams[16],1), matrix(cheatsheet$team == all.teams[17],1), matrix(cheatsheet$team == all.teams[18],1), matrix(cheatsheet$team == all.teams[19],1), matrix(cheatsheet$team == all.teams[20],1))
+
+
+
+
+currentteam <- c("Edouard Mendy", "João Cancelo", "Trent Alexander-Arnold", "Rúben Dias", "Reece James", "Ivan Perišić", "Martinelli", "Mohamed Salah", "Erling Haaland", "Gabriel Jesus", "Aleksandar Mitrović")
+
+
+musthave <- c("Ivan Perišić")
+
+
+best11 <- cheatsheet[lp(direction = "max",
+     objective.in = cheatsheet$ovr_fplmetric,
+     const.mat = rbind(matrix(rep(1, length(cheatsheet$player)),1), teamsmatrix, matrix(cheatsheet$price, 1), matrix(cheatsheet$pos == "GK", 1), matrix(cheatsheet$pos == "DF", 1), matrix(cheatsheet$pos == "DF", 1), matrix(cheatsheet$pos == "MF", 1), matrix(cheatsheet$pos == "MF", 1), matrix(cheatsheet$pos == "FW", 1), matrix(cheatsheet$pos == "FW", 1), matrix(cheatsheet$player %in% currentteam, 1), matrix(cheatsheet$player %in% musthave, 1)),
+     const.dir = c("==", rep("<=", 20), "<=", "==", "<=", ">=", "<=", ">=", "<=", ">=", ">=", "=="),
+     const.rhs = c(11, rep(3, 20), 82.6, 1, 5, 3, 5, 2, 3, 1, 9, 1),
+     all.bin = TRUE)$solution == 1,]
+
+
+
+
+sum(best11$price)
+
+#matrix(cheatsheet$price, 1)
+
+
+sum(cheatsheet$price[cheatsheet$player %in% currentteam])
+
+#matrix(cheatsheet$player %in% currentteam, 1)
+
+
+# 
+# 
+# matrix(rep(1, length(cheatsheet$player)),1)
+# #equal to 11
+# 
+# outer(all.teams, cheatsheet$team, "==")
+# #only three players per team, should be of length 20. <= 3
+# 
+# matrix(cheatsheet$price, 1)
+# #less than or equal to 82 pounds (subject to change)
+# 
+# matrix(cheatsheet$pos == "GK", 1)
+# # equal to 1
+# 
+# matrix(cheatsheet$pos == "DF", 1)
+# # less than or equal to 5
+# 
+# matrix(cheatsheet$pos == "DF", 1)
+# # greater than or equal to 3
+# 
+# matrix(cheatsheet$pos == "MF", 1)
+# # less than or equal to 5
+# 
+# matrix(cheatsheet$pos == "MF", 1)
+# # greater than or equal to 2
+# 
+# matrix(cheatsheet$pos == "FW", 1)
+# #less than or equal to 3
+# 
+#matrix(cheatsheet$pos == "FW", 1)
+# # greater than or equal to 1
+# 
+# 
+# 
+# rbind(matrix(rep(1, length(cheatsheet$player)),1), teamsmatrix, matrix(cheatsheet$price, 1), matrix(cheatsheet$pos == "GK", 1), matrix(cheatsheet$pos == "DF", 1), matrix(cheatsheet$pos == "DF", 1), matrix(cheatsheet$pos == "MF", 1), matrix(cheatsheet$pos == "MF", 1), matrix(cheatsheet$pos == "FW", 1), matrix(cheatsheet$pos == "FW", 1))
+# 
+# 
+# c("==", rep("<=", 20), "<=", "==", "<=", ">=", "<=", ">=", "<=", ">=")
+# 
+# c("11", rep(3, 20), 82, 1, 5, 3, 5, 2, 3, 1)
+# 
+
+
+.83*4*38 + .27*3*38
+
+.65*5*38 + .25*3*38 + 15
+
+```
+
+
+
+
+
+```{r}
+
+#'[ Essentially, take Vegas goalscorer odds
+#'[ Vegas clean sheet odds
+#'
+#'
+
+#'[ If it is at home against a non-top six side, percentages are subtracted by .08. If it is on the road against a non-top 6 side, keep it even. If it is at home against a top-6 side, keep the percentages. If it is on the road against a top 6 side, add .08 to percentages.
+
+#'[ Basically for everyone else and united, chelse, tottenham, and arsenal. (Newcastle Brighton?)
+
+#'[ Special exception for Liverpool and City. Add .08 to percentages if facing these teams at home, and add .16 to percentages if facing these teams on the raod.
+#'
+#'
+#'[ Add in xA numbers from reference
+#'[ Add in Playing time numbers from reference
+#'
+#'[ Get position and price from fpl_players_
+#'
+#'
+#'
+#'[ If beginning of season: take xA and playing time numbers from last year, idgaf if they are from another team. You can always wildcard.
+
+
+
+
+
+
+
+
+```
